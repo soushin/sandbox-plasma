@@ -1,0 +1,198 @@
+group 'plasma-cli'
+
+buildscript {
+    ext.kotlin_version = '1.2.10'
+    ext.springboot_version = '2.0.0.M7'
+    ext.springfox_version = '2.6.1'
+    ext.doma_version = '2.17.0'
+    ext.grpc_version = '1.9.0'
+    ext.aws_sdk_version = '1.11.152'
+    ext.kotlin_coroutine_version = '0.17'
+    ext.alpn_agent_version  = '2.0.6'
+    ext.kt_common_version  = '1.11'
+
+    repositories {
+        mavenCentral()
+
+        maven { url 'https://repo.spring.io/milestone' }
+        maven { url 'http://repo.spring.io/plugins-release' }
+
+        maven { url 'https://oss.sonatype.org/content/repositories/snapshots' }
+
+        maven { url 'https://maven.ca-tools.org/content/repositories/releases' }
+        maven { url 'https://maven.ca-tools.org/content/repositories/snapshots' }
+    }
+    dependencies {
+        classpath "org.springframework.boot:spring-boot-gradle-plugin:$springboot_version"
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
+        classpath "org.jetbrains.kotlin:kotlin-allopen:$kotlin_version"
+        classpath 'io.spring.gradle:propdeps-plugin:0.0.9.RELEASE'
+        classpath 'com.google.protobuf:protobuf-gradle-plugin:0.8.1'
+        classpath 'com.google.gradle:osdetector-gradle-plugin:1.4.0'
+    }
+}
+
+apply plugin: 'com.google.protobuf'
+apply plugin: 'java'
+apply plugin: 'kotlin'
+apply plugin: 'kotlin-spring'
+apply plugin: 'kotlin-kapt'
+apply plugin: 'io.spring.dependency-management'
+apply plugin: 'org.springframework.boot'
+apply plugin: 'application'
+apply plugin: 'idea'
+apply plugin: 'com.google.osdetector'
+apply plugin: 'jacoco'
+
+sourceCompatibility = 1.8
+targetCompatibility = 1.8
+
+repositories {
+    mavenCentral()
+    mavenLocal()
+    jcenter()
+
+    maven { url 'https://repo.spring.io/milestone' }
+    maven { url 'http://maven.springframework.org/milestone' }
+
+    maven { url 'https://oss.sonatype.org/content/repositories/snapshots' }
+
+    maven { url 'https://maven.ca-tools.org/content/repositories/releases' }
+    maven { url 'https://maven.ca-tools.org/content/repositories/snapshots' }
+}
+
+processResources.destinationDir = compileJava.destinationDir
+compileJava.dependsOn processResources
+compileKotlin.dependsOn processResources
+
+kapt {
+    generateStubs = false
+    arguments {
+        arg('doma.resources.dir', processResources.destinationDir)
+    }
+}
+
+compileKotlin {
+    sourceCompatibility = JavaVersion.VERSION_1_8
+    targetCompatibility = JavaVersion.VERSION_1_8
+
+    kotlinOptions {
+        jvmTarget = '1.8'
+    }
+}
+
+compileTestKotlin {
+    sourceCompatibility = JavaVersion.VERSION_1_8
+    targetCompatibility = JavaVersion.VERSION_1_8
+
+    kotlinOptions {
+        jvmTarget = '1.8'
+    }
+}
+
+sourceSets {
+    main {
+        proto {
+            srcDir 'src/main/proto'
+        }
+        kotlin {
+            srcDir 'src/main/kotlin'
+        }
+        java {
+            srcDir 'src/main/java'
+            srcDir 'src/main/grpc'
+        }
+    }
+}
+
+def tcnative_classifier = osdetector.classifier;
+if (osdetector.os == 'linux' && osdetector.release.isLike('fedora')) {
+    tcnative_classifier += '-fedora';
+}
+
+configurations {
+    jmockit
+    optional
+    ktlint
+    javaAgent { description 'additional lib as jvm agent' }
+}
+
+mainClassName = 'plasma.cli.Application'
+
+dependencies {
+    compile "org.jetbrains.kotlin:kotlin-stdlib-jre8:$kotlin_version"
+    compile "org.jetbrains.kotlin:kotlin-reflect:$kotlin_version"
+
+    // grpc
+    compile "io.grpc:grpc-netty:${grpc_version}"
+    compile "io.grpc:grpc-protobuf:${grpc_version}"
+    compile "io.grpc:grpc-stub:${grpc_version}"
+    compile "com.google.api.grpc:googleapis-common-protos:0.0.3"
+    compile 'com.google.apis:google-api-services-androidpublisher:v2-rev46-1.22.0'
+
+    // grpc-tsl
+    compile "io.netty:netty-tcnative:2.0.7.Final:${tcnative_classifier}"
+
+    // spring-boot
+    compile ('org.springframework.boot:spring-boot-starter-webflux') {
+        exclude module: 'hibernate-validator'
+    }
+    compile 'org.springframework.boot:spring-boot-starter-reactor-netty'
+    optional 'org.springframework.boot:spring-boot-configuration-processor'
+    compile 'io.projectreactor:reactor-kotlin-extensions:1.0.0.M1'
+    compile 'org.springframework:spring-webmvc'
+
+    // log
+    compile 'net.logstash.logback:logstash-logback-encoder:4.9'
+    compile 'io.github.microutils:kotlin-logging:1.4.4'
+
+    // util
+    ktlint 'com.github.shyiko:ktlint:0.8.1'
+    compile 'com.beust:klaxon:0.31'
+    compile 'com.fasterxml.jackson.module:jackson-module-kotlin:2.9.2'
+    compile 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.9.1'
+
+    // kotlin-coroutine
+    compile "org.jetbrains.kotlinx:kotlinx-coroutines-core:$kotlin_coroutine_version"
+}
+
+protobuf {
+    protoc {
+        artifact = 'com.google.protobuf:protoc:3.2.0'
+    }
+    plugins {
+        grpc {
+            artifact = "io.grpc:protoc-gen-grpc-java:${grpc_version}"
+        }
+    }
+    generateProtoTasks {
+        all()*.plugins {
+            grpc {}
+        }
+    }
+    generatedFilesBaseDir = "$projectDir/src/"
+}
+
+startScripts.enabled = false
+
+task cleanProtoGen{
+    doFirst{
+        delete("$projectDir/src/main/grpc")
+        delete("$projectDir/src/main/java/openfresh/plasma")
+    }
+}
+clean.dependsOn cleanProtoGen
+
+task ktlint(type: JavaExec) {
+    main = 'com.github.shyiko.ktlint.Main'
+    classpath = configurations.ktlint
+    args 'src/**/*.kt'
+    args '!src/test/**/*.kt'
+}
+
+kotlin {
+    experimental {
+        coroutines 'enable'
+    }
+}
+

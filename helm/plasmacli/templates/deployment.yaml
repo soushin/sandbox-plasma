@@ -1,0 +1,80 @@
+apiVersion: apps/v1beta2
+kind: Deployment
+metadata:
+  name: {{ template "plasmacli.fullname" . }}
+  labels:
+    app: {{ template "plasmacli.name" . }}
+    chart: {{ template "plasmacli.chart" . }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ template "plasmacli.name" . }}
+      release: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app: {{ template "plasmacli.name" . }}
+        release: {{ .Release.Name }}
+    spec:
+      containers:
+        - name: plasmacli
+          image: "{{ .Values.plasmaCli.image.repository }}:{{ .Values.plasmaCli.image.tag }}"
+          imagePullPolicy: {{ .Values.plasmaCli.image.pullPolicy }}
+          ports:
+            - name: plasmacli
+              containerPort: {{ .Values.plasmaCli.env.internalPort }}
+          env:
+          - name: PLASMA_CLI_PORT
+            value: {{ .Values.plasmaCli.env.internalPort | quote }}
+          - name: PLASMA_HOST
+            value: {{ .Values.plasmaCli.env.plasmaHost | quote }}
+          - name: PLASMA_PORT
+            value: {{ .Values.plasmaCli.env.plasmaPort | quote }}
+          livenessProbe:
+            httpGet:
+              path: /health_check
+              port: {{ .Values.plasmaCli.env.internalPort }}
+          readinessProbe:
+            httpGet:
+              path: /health_check
+              port: {{ .Values.plasmaCli.env.internalPort }}
+        - name: plasma
+          image: "{{ .Values.plasma.image.repository }}:{{ .Values.plasma.image.tag }}"
+          imagePullPolicy: {{ .Values.plasma.image.pullPolicy }}
+          ports:
+            - name: plasma
+              containerPort: {{ .Values.plasma.env.internalPort }}
+          env:
+          - name: PLASMA_PORT
+            value: {{ .Values.plasma.env.internalPort | quote }}
+          - name: PLASMA_GRPC_PORT
+            value: {{ .Values.plasma.env.internalGrpcPort | quote }}
+          - name: PLASMA_SUBSCRIBER_REDIS_CHANNELS
+            value: {{ .Values.plasma.env.subscrierRedisChannels | quote }}
+          - name: PLASMA_DEBUG
+            value: {{ .Values.plasma.env.debug | quote }}
+          - name: PLASMA_SUBSCRIBER_TYPE
+            value: {{ .Values.plasma.env.subscriberType | quote }}
+        - name: redis
+          image: "{{ .Values.redis.image.repository }}:{{ .Values.redis.image.tag }}"
+          imagePullPolicy: {{ .Values.redis.image.pullPolicy }}
+          ports:
+            - name: redis
+              containerPort: {{ .Values.redis.env.internalPort }}
+          resources:
+{{ toYaml .Values.resources | indent 12 }}
+    {{- with .Values.nodeSelector }}
+      nodeSelector:
+{{ toYaml . | indent 8 }}
+    {{- end }}
+    {{- with .Values.affinity }}
+      affinity:
+{{ toYaml . | indent 8 }}
+    {{- end }}
+    {{- with .Values.tolerations }}
+      tolerations:
+{{ toYaml . | indent 8 }}
+    {{- end }}

@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ template "plasmacli.fullname" . }}
+  labels:
+    app: {{ template "plasmacli.name" . }}
+    chart: {{ template "plasmacli.chart" . }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    - port: {{ .Values.service.port }}
+      targetPort: 8080
+      protocol: TCP
+      name: {{ .Values.service.name }}
+  selector:
+    app: {{ template "plasmacli.name" . }}
+    release: {{ .Release.Name }}

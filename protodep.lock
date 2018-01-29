@@ -1,0 +1,6 @@
+proto_outdir = "./src/main/proto/openfresh/plasma/protobuf"
+
+[[dependencies]]
+  target = "github.com/openfresh/plasma/protobuf"
+  revision = "e0ddc50b4e92de21505d501a66d36163ab48effe"
+  branch = "master"
